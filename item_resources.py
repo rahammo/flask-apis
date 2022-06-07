@@ -29,7 +29,7 @@ class Item(Resource):
         item = ItemModel(name, request_item['price'])
         
         try:
-            item.insert()
+            item.save_to_db()
         except:
             return {"message": "An error occurred inserting the item."}, 500
         
@@ -37,34 +37,25 @@ class Item(Resource):
 
     @jwt_required()
     def delete(self, name):
-        connection = sqlite3.connect('data.db')
-        cursor = connection.cursor()
-        
-        query = "DELETE FROM {table} WHERE name=?".format(table=self.table_name)
-        cursor.execute(query, (name,))
-        
-        connection.commit()
-        connection.close()
-        
+        item = ItemModel.find_by_name(name)
+        if item:
+            item.delete_from_db()
+            
         return {'message': 'Item deleted'}
 
     def put(self, name):
         request_item = Item.parser.parse_args()
         
         item = ItemModel.find_by_name(name)
-        updated_item = {'name': name, "price": request_item['price']}
+        
         
         if item is None:
-            try:
-                updated_item.insert()
-            except:
-                {"message": "An error occurred inserting the item."}, 500
+            item = ItemModel(name, request_item['price'])
         else:
-            try:
-                updated_item.update()
-            except:
-                return {"message": "An error occurred updating the item."}, 500
-        return updated_item.json()
+           item.price = request_item['price']
+           
+        item.save_to_db()
+        return item.json()
 
 
 class ItemList(Resource):
@@ -83,22 +74,3 @@ class ItemList(Resource):
         connection.close()
         
         return {"items": items}
-
-    # def put(self, name):
-    #     connection = sqlite3.connect('data.db')
-    #     cursor = connection.cursor()
-        
-    #     query = "SELECT * FROM {table}".format(table=self.table_name)
-    #     if item is None:
-    #         item = {'name': name, 'price': data['price']}
-    #         items.append(item)
-    #     else:
-    #         item.update(data)
-    #     return item
-
-    #     connection.close()
-        
-
-
-# api.add_resource(Item, '/item/<string:name>')
-# api.add_resource(ItemList, '/items')
