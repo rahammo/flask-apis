@@ -1,4 +1,3 @@
-import sqlite3
 from flask_restful import Resource, reqparse
 from flask_jwt import jwt_required
 from models.item import ItemModel
@@ -11,6 +10,12 @@ class Item(Resource):
                         type=float,
                         required=True,
                         help="This field cannot be left blank!"
+                        )
+    
+    parser.add_argument('store_id',
+                        type=int,
+                        required=True,
+                        help="Every item reuires a stor_id"
                         )
 
     @jwt_required()
@@ -26,16 +31,15 @@ class Item(Resource):
 
         request_item = Item.parser.parse_args()
 
-        item = ItemModel(name, request_item['price'])
-        
+        item = ItemModel(name, **request_item)
+
         try:
             item.save_to_db()
         except:
             return {"message": "An error occurred inserting the item."}, 500
-        
-        return item.json(), 201
 
-    @jwt_required()
+        return item.json(), 201
+    
     def delete(self, name):
         item = ItemModel.find_by_name(name)
         if item:
@@ -45,16 +49,16 @@ class Item(Resource):
 
     def put(self, name):
         request_item = Item.parser.parse_args()
-        
+
         item = ItemModel.find_by_name(name)
-        
-        
-        if item is None:
-            item = ItemModel(name, request_item['price'])
+
+        if item:
+            item.price = request_item['price']
         else:
-           item.price = request_item['price']
-           
+            item = ItemModel(name, **request_item)
+
         item.save_to_db()
+
         return item.json()
 
 
@@ -62,15 +66,4 @@ class ItemList(Resource):
     table_name = "items"
     
     def get(self):
-        connection = sqlite3.connect('data.db')
-        cursor = connection.cursor()
-        
-        query = "SELECT * FROM {table}".format(table=self.table_name)
-        result = cursor.execute(query)
-        items = []
-        for row in result:
-            items.append({'name': row[0], 'price': row[1]})
-
-        connection.close()
-        
-        return {"items": items}
+        return {'items': [item.json() for item in ItemModel.query.all()]}
